@@ -1,0 +1,14 @@
+{
+  "tool": "Built-in image_gen.imagegen",
+  "transparent_background": true,
+  "reference": ".prototype-checks/hero-reference.png (first idle atlas frame; player asset unchanged)",
+  "prefix": "Use case: stylized-concept. Asset type: ONE full-body transparent idle NPC sprite for the existing 2D college educational game. Input image 1 is ONLY the art-style and body-proportion reference, the existing player sprite, which must remain unchanged. Create a DIFFERENT adult NPC: ",
+  "suffix": " Match the reference's polished semi-chibi 2D game illustration exactly: about 3.4 heads tall, same head-to-body proportions, thin crisp dark blue-grey outlines, softly shaded dimensional hair and clothing, detailed yet restrained anime eyes, natural friendly adult face, muted college palette, subtle fabric folds and clean shoe construction. Three-quarter front standing idle pose facing slightly right, both feet flat on a common baseline. Single character centred, entire head and shoes visible, comfortable transparent margins. Genuinely transparent alpha background. No environment, no floor, no cast shadow, no extra figures, no text, no watermarks. Not flat vector clipart, not giant toddler head, not 3D.",
+  "subjects": {
+    "alexey": "Alexey, male college IT mentor age 32, slightly tousled chestnut hair, discreet rectangular glasses, warm relaxed expression, teal zip hoodie over muted cream T-shirt, dark charcoal chinos, clean grey sneakers, small employee ID on a turquoise lanyard. Hands relaxed by his sides.",
+    "dispatcher": "Female college timetable coordinator age 40, auburn hair in a tidy low bun with soft strands, subtle glasses, warm composed face, sand beige cardigan over cream blouse, dark slate trousers, beige flat shoes, discreet staff ID. Holding a slim closed timetable clipboard beside her hip.",
+    "director": "Male college director age 50, neatly combed dark hair with silver temples, calm approachable face, soft navy blazer over light blue shirt without tie, charcoal trousers, dark brown shoes, a discreet staff badge. Hands relaxed, not threatening.",
+    "teacher-anna": "Female college teacher age 35, shoulder-length chestnut bob, attentive friendly face, muted dusty plum cardigan over cream top, charcoal tapered trousers, soft grey sneakers, small lanyard badge. A slim closed notebook at her side.",
+    "teacher-sergey": "Male college teacher age 45, short sandy brown hair with slight greying, small neat beard, subtle glasses, attentive friendly face, muted sage overshirt over pale cream T-shirt, dark slate trousers and brown casual shoes, small lanyard badge. Hands relaxed."
+  }
+}

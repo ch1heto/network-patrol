@@ -1,0 +1,20 @@
+# Dependencies and local application data
+node_modules/
+storage/
+
+# Generated browser checks, screenshots, test databases and logs
+.prototype-checks/
+*.log
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# SQLite databases and temporary journal/WAL files
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*

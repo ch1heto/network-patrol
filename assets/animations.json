@@ -1,0 +1,18 @@
+{
+  "width": 250,
+  "height": 333,
+  "fps": 12,
+  "columns": 12,
+  "animations": {
+    "idle": {
+      "frames": 120,
+      "rows": 10,
+      "src": "assets/idle.webp"
+    },
+    "run": {
+      "frames": 108,
+      "rows": 9,
+      "src": "assets/run.webp"
+    }
+  }
+}

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#e7edea">
+  <title>Сетевой патруль – от первого подключения до локальной сети</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="ui/world.css">
+  <script src="data/locations.js" defer></script>
+  <script src="data/worldObjects.js" defer></script>
+  <script src="data/npcs.js" defer></script>
+  <script src="data/chapters.js" defer></script>
+  <script src="data/objectives.js" defer></script>
+  <script src="data/dialogues.js" defer></script>
+  <script src="data/lessons.js" defer></script>
+  <script src="data/quizzes.js" defer></script>
+  <script src="data/curriculum.js" defer></script>
+  <script src="network/devices.js" defer></script>
+  <script src="network/topology.js" defer></script>
+  <script src="network/simulator.js" defer></script>
+  <script src="network/validation.js" defer></script>
+  <script src="network/course.js" defer></script>
+  <script src="data/taskContracts.js" defer></script>
+  <script src="network/taskState.js" defer></script>
+  <script src="network/packetAnimation.js" defer></script>
+  <script src="engine/save.js" defer></script>
+  <script src="engine/quests.js" defer></script>
+  <script src="engine/ui.js" defer></script>
+  <script src="engine/dialogues.js" defer></script>
+  <script src="engine/npcs.js" defer></script>
+  <script src="engine/locations.js" defer></script>
+  <script src="engine/camera.js" defer></script>
+  <script src="engine/collisions.js" defer></script>
+  <script src="engine/scenery.js" defer></script>
+  <script src="engine/tasks.js" defer></script>
+  <script src="ui/quiz.js" defer></script>
+  <script src="ui/knowledge.js" defer></script>
+  <script src="ui/networkLab.js" defer></script>
+  <script src="ui/worldCards.js" defer></script>
+  <script src="ui/course.js" defer></script>
+  <script src="ui/taskGuide.js" defer></script>
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <main id="room" tabindex="-1" aria-label="Игровая локация колледжа">
+    <header class="hud">
+      <div><span class="eyebrow">СЕТЕВОЙ ПАТРУЛЬ / 09.02.07</span><h1>IT-кабинет</h1><p id="location-subtitle">База IT-службы · кабинет 214</p></div>
+      <nav class="hud-tools" aria-label="Меню стажёра"><span id="xp">0 XP</span><button id="map-button" type="button">Маршрут</button><button id="knowledge-button" type="button">Справочник</button><button id="lab-button" type="button">Стенд</button><details id="game-menu"><summary aria-label="Дополнительное меню">•••</summary><div class="menu-popover"><button id="journal-button" type="button">Журнал</button><button id="help-button" type="button">Помощь</button><a href="/">Учебный кабинет</a></div></details><span id="state" class="state" aria-label="Состояние персонажа">ЗАГРУЗКА</span></nav>
+    </header>
+    <section class="quest-hud" aria-label="Текущая задача"><small id="chapter-label">Глава 0 · Вводная</small><p id="objective">Подойдите к Алексею</p><small id="task-location"></small><small id="task-action"></small><small id="task-result"></small><button id="what-next" type="button">Что делать?</button><button id="show-target" type="button" aria-label="Показать текущую цель">Показать цель</button></section>
+    <div id="world"><div class="decor" aria-hidden="true">
+      <div class="back-wall"></div>
+      <div class="side-wall left-wall"></div>
+      <div class="side-wall right-wall"></div>
+      <div class="wall-sign"><span>IT</span><div>УЧЕБНЫЙ КОРПУС<small>Технологии начинаются здесь</small></div></div>
+      <div class="notice"><span id="world-decoration">IT-СЛУЖБА</span><small>Код. Создавай. Пробуй.</small></div>
+      <svg id="floor" class="floor" width="100%" height="100%"><defs><linearGradient id="floor-color" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d1dad5"/><stop offset="1" stop-color="#e3e8e1"/></linearGradient></defs><path id="floor-shape" fill="url(#floor-color)"/><path id="floor-lines" fill="none" stroke="#718b7e" stroke-opacity=".16" stroke-width="1"/><path id="floor-edges" fill="none" stroke="#9daf9f" stroke-width="5"/></svg>
+    </div>
+    <div id="doors"></div><div id="scene-details"></div>
+    <svg id="cables" aria-hidden="true"></svg>
+    <div id="packet" hidden aria-hidden="true"></div>
+    <p id="packet-status" role="status" hidden></p>
+    <span id="interaction-hint" class="interaction-marker" aria-hidden="true" hidden>!</span>
+    <div id="character" role="img" aria-label="Персонаж стоит">
+      <div class="character-shadow"></div>
+      <canvas id="sprite" width="250" height="333"></canvas>
+    </div>
+    <svg id="debug-area" aria-hidden="true" hidden><path id="debug-path"/></svg>
+    <div id="debug-foot" aria-hidden="true" hidden></div>
+    <output id="debug-values" hidden></output>
+    </div>
+    <p id="loading" role="status">Подготавливаем персонажа…</p>
+    <aside id="onboarding" hidden aria-label="Первое знакомство с управлением"><button id="onboarding-close" type="button" aria-label="Скрыть подсказку">×</button><strong>Добро пожаловать в IT-службу</strong><p class="keyboard-help"><kbd>WASD</kbd> или стрелки – движение<br><kbd>E</kbd> – действие рядом · <kbd>Esc</kbd> – закрыть окно</p><p class="touch-help">Крестик – движение. Подойдите к человеку или объекту и нажмите кнопку действия.</p><small>Подсказка исчезнет после первого движения. Помощь доступна в меню •••.</small></aside>
+    <button id="interact-button" type="button" hidden disabled>Действие [E]</button>
+    <p id="toast" role="status" hidden></p>
+    <div class="touch-controls" aria-label="Управление движением">
+      <button type="button" data-direction="up" aria-label="Двигаться в глубину">↑</button>
+      <button type="button" data-direction="left" aria-label="Двигаться влево">←</button>
+      <button type="button" data-direction="right" aria-label="Двигаться вправо">→</button>
+      <button type="button" data-direction="down" aria-label="Двигаться к переднему плану">↓</button>
+    </div>
+    <div id="transition-screen" tabindex="-1" role="status" aria-live="polite" hidden><div class="gear" aria-hidden="true">⚙</div><p>Переход в локацию…</p><strong id="transition-location"></strong></div>
+    <dialog id="overlay" aria-labelledby="overlay-title" aria-describedby="overlay-role"><button id="overlay-close" type="button" aria-label="Закрыть окно">×</button><div class="overlay-heading"><div id="overlay-portrait" hidden></div><div><small id="overlay-role"></small><h2 id="overlay-title"></h2></div></div><div id="overlay-content"></div><div id="overlay-actions"></div></dialog>
+  </main>
+</body>
+</html>

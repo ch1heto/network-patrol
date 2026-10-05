@@ -1,0 +1,27 @@
+{
+  "name": "a_eor_konkurs",
+  "version": "1.0.0",
+  "description": "Учебный веб-квест с аккаунтами, SQLite и браузерным сетевым стендом",
+  "main": "server/app.cjs",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "start": "node server/app.cjs",
+    "admin:teacher": "node server/admin.cjs",
+    "test": "node tests/run.cjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0",
+    "playwright": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

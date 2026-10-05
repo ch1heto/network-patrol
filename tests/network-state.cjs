@@ -1,0 +1,9 @@
+'use strict';
+const assert=require('node:assert/strict'),{N,S,T}=require('./state-helpers.cjs');let checks=0;
+for(let chapter=1;chapter<=11;chapter++)for(const demo of [false,true]){const o={chapter,demo},a=S.initial(o),b=S.initial(o);assert.deepEqual(a,b);assert.equal(a.version,N.NETWORK_STATE_VERSION);T.assertInvariants(a);assert.equal(a.ui.selectedTool,null);assert.equal(a.ui.selectedDevice,null);checks+=5;const old=structuredClone(a);old.version=1;delete old.task;const r=S.prepare(old,o);assert.equal(r.migrated,true);assert.equal(r.recovered,false);assert.equal(JSON.stringify(r.model.links),JSON.stringify(a.links));checks+=3;}
+const initial=S.initial({chapter:3});assert.equal(initial.links.length,0);assert.equal(initial.devices.filter(d=>d.type==='pc').length,3);assert.ok(initial.devices.flatMap(d=>d.ports).every(p=>!p.occupied&&p.connectionId===null));checks+=3;
+initial.ui.selectedTool='ethernet';initial.ui.selectedDevice='d1';initial.ui.cableSource='d1';const resume=S.prepare(initial,{chapter:3});assert.equal(resume.model.ui.cableSource,'d1');assert.equal(resume.recovered,false);checks+=2;
+assert.equal(S.prepare(S.initial({chapter:5}),{chapter:6}).recovered,true);checks++;
+const pending=S.initial({chapter:3});pending.ui={selectedTool:'ethernet',selectedDevice:'d4',cableSource:'d1',portChoice:{from:'d1',to:'d2',switchId:'d2'}};assert.equal(S.prepare(pending,{chapter:3}).model.ui.selectedDevice,'d2');checks++;
+pending.ui.portChoice.switchId='d1';const repaired=S.prepare(pending,{chapter:3}).model;assert.equal(repaired.ui.portChoice,null);assert.equal(repaired.ui.cableSource,null);assert.equal(repaired.ui.selectedTool,null);checks+=3;
+console.log(`PASS: ${checks} network-state checks; deterministic initial/reset, explicit port state, task/version migration, chapter binding and pending cable selection`);

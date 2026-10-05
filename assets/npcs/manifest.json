@@ -1,0 +1,77 @@
+{
+  "frame": {
+    "width": 500,
+    "height": 666,
+    "feetY": 640,
+    "renderOffsetY": "3%",
+    "bodyHeight": 610
+  },
+  "assets": [
+    {
+      "id": "alexey",
+      "file": "alexey.webp",
+      "format": "WebP lossless RGBA",
+      "pose": "idle"
+    },
+    {
+      "id": "dispatcher",
+      "file": "dispatcher.webp",
+      "format": "WebP lossless RGBA",
+      "pose": "idle"
+    },
+    {
+      "id": "director",
+      "file": "director.webp",
+      "format": "WebP lossless RGBA",
+      "pose": "idle"
+    },
+    {
+      "id": "teacher-anna",
+      "file": "teacher-anna.webp",
+      "format": "WebP lossless RGBA",
+      "pose": "idle"
+    },
+    {
+      "id": "teacher-sergey",
+      "file": "teacher-sergey.webp",
+      "format": "WebP lossless RGBA",
+      "pose": "idle"
+    },
+    {
+      "id": "administrator-irina",
+      "file": "administrator-irina.png",
+      "format": "PNG RGBA",
+      "pose": "idle",
+      "frame": {
+        "width": 1086,
+        "height": 1448
+      },
+      "prompt": "administrator-irina.prompt.txt",
+      "tool": "Built-in image_gen.imagegen"
+    },
+    {
+      "id": "administrator-dmitry",
+      "file": "administrator-dmitry.png",
+      "format": "PNG RGBA",
+      "pose": "idle",
+      "frame": {
+        "width": 1086,
+        "height": 1448
+      },
+      "prompt": "administrator-dmitry.prompt.txt",
+      "tool": "Built-in image_gen.imagegen"
+    },
+    {
+      "id": "teacher-olga",
+      "file": "teacher-olga.png",
+      "format": "PNG RGBA",
+      "pose": "idle",
+      "frame": {
+        "width": 1086,
+        "height": 1448
+      },
+      "prompt": "teacher-olga.prompt.txt",
+      "tool": "Built-in image_gen.imagegen"
+    }
+  ]
+}
