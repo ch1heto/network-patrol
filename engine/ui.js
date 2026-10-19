@@ -21,11 +21,11 @@
   function close() {
     if (!modal.open) return;
     const callback = onClose; onClose = null;
-    modal.close(); Patrol.runtime.setBlocked(false);
+    modal.close(); document.getElementById('room').append(document.getElementById('toast')); Patrol.runtime.setBlocked(false);
     callback?.();
   }
   function open({ title, subtitle = '', npc = null, closed = null, wide = false }) {
-    if (modal.open || Patrol.engines.locations?.transitioning || Patrol.engines.npcs?.packetActive) return false;
+    if (!Patrol.runtime?.ready || modal.open || Patrol.engines.locations?.transitioning || Patrol.engines.npcs?.packetActive) return false;
     heading.textContent = title; role.textContent = subtitle;
     modal.classList.toggle('wide', wide);
     modal.classList.toggle('dialogue', !!npc);
@@ -37,7 +37,7 @@
     portrait.hidden = !npc;
     content.replaceChildren(); actions.replaceChildren();
     onClose = closed;
-    Patrol.runtime.setBlocked(true); modal.showModal();
+    Patrol.runtime.setBlocked(true); modal.showModal(); modal.append(document.getElementById('toast'));
     queueMicrotask(()=>{if(modal.open&&heading.textContent===title&&Patrol.ui.taskGuide&&!['Что делать сейчас?','Учебный маршрут'].includes(title)){if(!content.querySelector('[data-task-guide]'))Patrol.ui.taskGuide.mount(content);Patrol.ui.taskGuide.addHelpButtons();}});
     return true;
   }

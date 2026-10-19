@@ -21,7 +21,7 @@
     const src = model.devices.find(d => d.id === sourceId);
     const fail = (message, path = [sourceId], failedAt = path.at(-1), code='TASK_STATE_INVALID') => ({ ok: false, code, message, path, failedAt });
     if (!src || ['switch','ap'].includes(src.type)) return fail('Выберите компьютер или другое конечное устройство отправителем.',[sourceId],sourceId,'DEVICE_NOT_FOUND');
-    let dst = model.devices.find(d => d.id === target || d.ip === target || d.name === target);
+    let dst = model.devices.find(d => d.id === target || d.ip === target || d.name === target && !target.includes('.') || d.type === 'router' && d.interfaces.some(i => i.ip === target));
     let dnsPath = null;
     if (!dst && ip(target) === null && !internal) {
       if (!src.dns) return fail('DNS-сервер не настроен. Для обращения по имени нужен адрес DNS-сервера. По IP-адресу можно проверить связь без DNS.');
@@ -34,7 +34,21 @@
       dnsPath = resolution.path; dst = model.devices.find(d => d.ip === address);
     }
     if (!dst) return fail('Устройство назначения не найдено. Укажите существующее устройство, его IP или имя из учебного DNS.');
-    const route = Patrol.network.topology.path(model, src.id, dst.id);
+    const T = Patrol.network.topology;
+    let destinationInterface = dst.type === 'router' ? dst.interfaces.find(i => (ip(target) === null || i.ip === target) && T.path(model,src.id,dst.id,{throughRouters:false,targetPort:i.port})) : null;
+    const dstAddress = destinationInterface || dst;
+    const lanRoute = T.path(model,src.id,dst.id,{throughRouters:false,targetPort:destinationInterface?.port});
+    let route = lanRoute || T.path(model, src.id, dst.id);
+    // A valid gateway may use a different physical path from the shortest one.
+    if (!lanRoute && dst.type !== 'router') {
+      for (const router of model.devices.filter(d=>d.type==='router')) {
+        const incoming=router.interfaces.find(i=>i.ip===src.gateway),outgoing=router.interfaces.find(i=>i.ip===dst.gateway);
+        if(!incoming||!outgoing||incoming.port===outgoing.port)continue;
+        const left=T.path(model,src.id,router.id,{throughRouters:false,targetPort:incoming.port});
+        const right=T.path(model,router.id,dst.id,{throughRouters:false,sourcePort:outgoing.port});
+        if(left&&right){route=[...left,...right.slice(1)];break;}
+      }
+    }
     if (!route) {
       // Find the reached part for a useful failed packet visualization.
       let reached = [src.id];
@@ -42,14 +56,17 @@
       return fail(`${src.name} и ${dst.name}: физического пути нет. Проверьте кабели, состояние links и Ethernet-портов.`, reached);
     }
     if (!host(src.ip, src.mask)) return fail(`${src.name}: некорректный IP-адрес или маска. Адрес должен обозначать устройство, а не сеть или широковещательную рассылку.`, [src.id],src.id,'INVALID_IPV4');
-    if (!host(dst.ip, dst.mask)) return fail(`${dst.name}: некорректный IP-адрес или маска.`, route, dst.id,'INVALID_IPV4');
+    if (!host(dstAddress.ip, dstAddress.mask)) return fail(`${dst.name}: некорректный IP-адрес или маска интерфейса.`, route, dst.id,'INVALID_IPV4');
     if (src.id !== dst.id && src.ip === dst.ip) return fail('Два устройства имеют одинаковый IP-адрес. Назначьте каждому свой адрес.', route, dst.id,'IP_CONFLICT');
-    const peers = model.devices.filter(d => !['switch','ap','router'].includes(d.type) && Patrol.network.topology.path(model,src.id,d.id));
-    const duplicate = peers.find((d,i) => host(d.ip,d.mask) && peers.slice(i+1).some(p => p.ip === d.ip));
-    if (duplicate) return fail(`Конфликт IP: адрес ${duplicate.ip} повторяется у нескольких доступных устройств. Назначьте каждому свой адрес.`, route.slice(0,1),src.id,'IP_CONFLICT');
+    // Routers separate broadcast domains; their LAN interfaces participate in ARP.
+    for (const endpoint of dst.type === 'router' ? [src] : [src,dst]) {
+      const peers = model.devices.flatMap(d => d.type === 'router' ? d.interfaces.filter(i=>T.path(model,endpoint.id,d.id,{throughRouters:false,targetPort:i.port})).map(i=>({...i,id:d.id})) : !['switch','ap'].includes(d.type)&&T.path(model,endpoint.id,d.id,{throughRouters:false}) ? [d] : []);
+      const duplicate = peers.find((d,i)=>host(d.ip,d.mask)&&peers.slice(i+1).some(p=>p.ip===d.ip));
+      if (duplicate) return fail(`Конфликт IP: адрес ${duplicate.ip} повторяется в одной LAN. Назначьте ПК и интерфейсам Router разные адреса.`, route.slice(0,1),endpoint.id,'IP_CONFLICT');
+    }
     const routers = route.map(id => model.devices.find(d => d.id === id)).filter(d => d.type === 'router');
-    const shared = same(src.ip, dst.ip, src.mask) && same(dst.ip, src.ip, dst.mask);
-    if (shared && routers.length) return fail('Устройства одной подсети разделены маршрутизатором. Для простой LAN подключите их к одному коммутатору; для маршрутизации задайте разные подсети.', route, routers[0].id);
+    const shared = same(src.ip, dstAddress.ip, src.mask) && same(dstAddress.ip, src.ip, dstAddress.mask);
+    if (shared && routers.length && dst.type !== 'router') return fail('Устройства одной подсети разделены маршрутизатором. Для простой LAN подключите их к одному коммутатору; для маршрутизации задайте разные подсети.', route, routers[0].id);
     if (!shared) {
       if (!routers.length) return fail(`${src.name} и ${dst.name} физически соединены, но находятся в разных подсетях. Коммутатор не заменяет маршрутизатор.`, route.slice(0, Math.max(1, route.length - 1)),src.id,'WRONG_SUBNET');
       if (routers.length !== 1) return fail('Эта версия проверяет маршрут через один Router. Цепочки маршрутизаторов появятся позже.', route, routers[0].id);

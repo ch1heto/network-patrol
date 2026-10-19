@@ -79,7 +79,7 @@
   }
   function field(label, value, change, help = '') {
     const wrapper = node('label', label); const input = node('input'); input.value = value || ''; input.title = help;input.setAttribute('aria-label',label);if(label==='Шлюз')input.dataset.taskControl='gateway';if(label==='DNS')input.dataset.taskControl='dns';if(label==='IP-адрес')input.dataset.taskControl='ip-1';
-    input.addEventListener('change', () => { if (!busy&&!guarded()) { change(input.value.trim()); persist(); render(); } }); wrapper.append(input); panel.append(wrapper);if(help)panel.append(node('small',help,'field-help'));return input;
+    input.addEventListener('change', () => { if (!busy&&!guarded()) { change(input.value.trim()); persist(); } }); wrapper.append(input); panel.append(wrapper);if(help)panel.append(node('small',help,'field-help'));return input;
   }
   function linkProperties(link) {
     if(guarded()){report(Patrol.ui.taskGuide.current().wrongActionFeedback,false);return;}selected = null; panel.replaceChildren(node('h3', 'Ethernet-кабель'));

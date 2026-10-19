@@ -63,7 +63,9 @@ const {createApp}=require('../server/app.cjs');
     eq((await f.call('/api/student/progress',{cookie:second.cookie})).body.progress.xp,0);
     eq(f.db.prepare('SELECT COUNT(*) AS n FROM chapter_results WHERE student_id=? AND chapter_id=1').get(student.id).n,1);
     const results=(await f.call(`/api/groups/${f.groupId}`,{cookie:f.teacher})).body;eq(results.students.find(s=>s.id===student.id).progress,7);
-    eq(results.students.find(s=>s.id===student.id).practices.length,8);
+    // Rechecking a completed step must not add another graded attempt.
+    eq(results.students.find(s=>s.id===student.id).practices.length,7);
+    eq(results.students.find(s=>s.id===student.id).quizzes.length,6);
     eq((await f.call(`/api/groups/${f.groupId}/close`,{method:'POST',data:{},cookie:f.teacher})).status,200);
     eq((await f.call('/api/join',{method:'POST',data:{token:f.token,surname:'А',firstName:'Б',password:'Student-password-2026'}})).status,410);
     const small=await f.call('/api/groups',{method:'POST',cookie:f.teacher,data:{name:'Лимит',course:1,capacity:1}});

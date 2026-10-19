@@ -5,7 +5,7 @@
   if (Patrol.progress.completedChapters.includes(1) && !Patrol.progress.unlockedLocations.includes('server')) Patrol.progress.unlockedLocations.push('server');
   Patrol.network.course.migrate(Patrol.progress);Patrol.network.taskState.recoverProgress(Patrol.progress);
   try { Patrol.progress.onboardingSeen = JSON.parse(localStorage.getItem(settingsKey))?.onboardingSeen === true; } catch {}
-  let available = true, queue = Promise.resolve(), timer;
+  let available = true, queue = Promise.resolve(), timer, revision = 0;
   async function request(url, data) {
     const r = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
     const result = await r.json();
@@ -19,7 +19,7 @@
     return next;
   }
   function flush() {
-    clearTimeout(timer);
+    clearTimeout(timer); timer=null;
     return enqueue(async()=>{
     const p = Patrol.progress;
     const data = {location:p.location};
@@ -31,16 +31,27 @@
   Patrol.engines.save = {
     get available(){return available;}, get pending(){return queue;},
     write(){
+      revision++;
       try {localStorage.setItem(settingsKey,JSON.stringify({onboardingSeen:!!Patrol.progress.onboardingSeen}));}catch{}
       clearTimeout(timer); timer=setTimeout(()=>flush().catch(()=>{}),200);
     },
     flush,
-    action(data){return enqueue(async()=>{
+    action(data){if(timer)flush().catch(()=>{});return enqueue(async()=>{
+      const requestedRevision=revision;
       const result=await request('/api/student/action',data);
       const settings=Patrol.progress.onboardingSeen;
+      const live=revision!==requestedRevision?{location:Patrol.progress.location,networkModel:Patrol.progress.networkModel,courseDraft:Patrol.progress.courseDraft,ux:Patrol.progress.ux,course:Patrol.progress.course}:null;
       if(!result.progress.replay)delete Patrol.progress.replay;
-      if(['replayStart','replayEnd'].includes(data.action))delete Patrol.progress.courseDraft;
+      if(['replayStart','replayEnd','courseReset','resetTask'].includes(data.action))delete Patrol.progress.courseDraft;
       Object.assign(Patrol.progress,result.progress,{onboardingSeen:settings});
+      if(live&&!['replayStart','replayEnd','courseReset','resetTask'].includes(data.action)){
+        Object.assign(Patrol.progress,{location:live.location,ux:live.ux});
+        if(live.networkModel?.task?.generation===Patrol.progress.networkModel?.task?.generation)Patrol.progress.networkModel=live.networkModel;
+        const chapter=live.courseDraft?.chapter,cs=Patrol.progress.course?.[chapter],local=live.course?.[chapter];
+        if(chapter===Patrol.progress.currentChapter&&cs&&local&&cs.step===local.step&&(cs.taskGeneration||0)===(local.taskGeneration||0)){
+          Object.assign(cs,{model:local.model,draft:local.draft});Patrol.progress.courseDraft=live.courseDraft;
+        }
+      }
       if(Patrol.progress.courseDraft&&Patrol.progress.courseDraft.chapter!==Patrol.progress.currentChapter)delete Patrol.progress.courseDraft;
       available=true; Patrol.ui.taskGuide?.refresh(); Patrol.ui.taskGuide?.paintMarker(); Patrol.engines.ui?.updateHUD();return result;
     });},

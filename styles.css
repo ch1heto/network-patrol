@@ -306,7 +306,7 @@ kbd {font:10px 'Segoe UI',sans-serif;display:inline-block;padding:1px 6px;border
 #overlay-actions button {font-size:12px;font-weight:500;padding:11px 17px;border-radius:18px;min-height:40px;border:1px solid #78926b2e;}
 .primary {background:#547569;color:#fff;}.primary:hover{background:#42665a;}.secondary{background:#eaf0e3;color:#3d5b4a;}.secondary:hover{background:#dfe9d9;}
 .page-marker {display:block;margin-top:20px;font-size:10px;color:#87977f;letter-spacing:.08em;}
-#toast {top:auto;bottom:28px;border-radius:18px;font-size:11px;padding:10px 17px;background:#46675a;max-width:calc(100% - 56px);}
+#toast {position:fixed;top:auto;bottom:28px;border-radius:18px;font-size:11px;padding:10px 17px;background:#46675a;max-width:calc(100% - 56px);}
 .scene-prop:not(.wall-prop)::before {content:'';position:absolute;left:12%;right:8%;bottom:-5px;height:10px;border-radius:50%;background:#30493b18;filter:blur(3px);z-index:-1;}
 .prop-bench {height:100px;border-top:30px solid #b29e79;border-bottom:19px solid #b19c76;box-shadow:0 3px #80775a;}
 .prop-bench::before,.prop-bench::after {top:37px;bottom:-20px;width:9px;}

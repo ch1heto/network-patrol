@@ -57,7 +57,7 @@
    if(t.test==='gateway')return !!(b&&N.course.validate(8,{},m).ok);
    if(t.test==='router')return !!router;
    if(t.test==='portsReviewed')return !!r.portsReviewed&&flows[3].slice(0,3).every(t=>done(t,m,r));
-   if(t.test==='router-a'||t.test==='router-b'){const d=name(t.test==='router-a'?'SW-A':'SW-B');if(!router||!d)return false;const l=m.links.find(l=>[l.fromDevice,l.toDevice].includes(router.id)&&[l.fromDevice,l.toDevice].includes(d.id));if(!l)return false;const port=l.fromDevice===router.id?l.fromPort:l.toPort;return port===(t.test==='router-a'?'eth0':'eth1')&&N.topology.portState(m,router.id,port).linkState==='up';}
+   if(t.test==='router-a'||t.test==='router-b'){const d=name(t.test==='router-a'?'SW-A':'SW-B');if(!router||!d)return false;const l=m.links.find(l=>[l.fromDevice,l.toDevice].includes(router.id)&&[l.fromDevice,l.toDevice].includes(d.id));if(!l)return false;const port=l.fromDevice===router.id?l.fromPort:l.toPort;return (m.task?.mode!=='TRAINING'||port===(t.test==='router-a'?'eth0':'eth1'))&&N.topology.portState(m,router.id,port).linkState==='up';}
    if(t.test==='dhcp')return !!m?.devices.find(d=>d.type==='laptop')?.services?.dhcpLease;
    if(t.test==='dns')return !!(name('PC-01')?.dns&&N.course.terminal(m,'nslookup college.ru').ok);
    return t.test!=='validation'&&!!r[t.test];

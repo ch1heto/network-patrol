@@ -1,0 +1,63 @@
+'use strict';
+// Browser-only continuation: keyboard walking and visible controls; evaluations only read state.
+const assert=require('node:assert/strict'),{cable,tutorial,instructions}=require('./ux-helpers.cjs');
+module.exports=async function finalRoute(page,{onChapter,onLab,onTraining,onScreen=async()=>{}}){
+ const startChapter=2;
+ const click=name=>(name==='Что делать?'?page.locator('#overlay-actions'):page).getByRole('button',{name,exact:true}).click();
+ const move=id=>require('./walk.cjs').door(page,id);
+ const answers={2:'Есть активная физическая связь',3:'В свободный порт',4:'Нет, обычно отдельную порцию',5:'192.168.300.10',6:'192.168.1.10 и 192.168.1.50 вместе; 192.168.2.10 отдельно',7:'Router',8:'192.168.2.1',9:'Обращение к своему компьютеру',10:'IP, маску, шлюз и DNS',11:'Проверить DNS и запись имени',12:'Файлы находятся на другом устройстве',13:'Файловый',14:'Нет, нужна отдельная резервная копия',15:'Повторить проверку исходной жалобы'};
+ for(let chapter=startChapter;chapter<=8;chapter++){console.log('E2E novice: chapter '+chapter);
+  const wanted=[5,6,7,8].includes(chapter)?'classroom':'lab';const room=await page.evaluate(()=>Patrol.progress.location);if(room!==wanted){if(room!=='corridor')await move(room==='lab'?'lab-exit':'class-exit');await move(wanted==='lab'?'to-lab':'to-class');}
+  await page.locator('#map-button').click();assert.ok((await page.locator('#overlay-content').textContent()).includes('Вы сейчас'));await click('Показать цель');assert.equal(await page.locator('.quest-target').count(),1);
+  // Walk through the actual world, including collision avoidance, using keyboard input.
+  await require('./walk.cjs').talk(page);await instructions(page);await click('Начать объяснение');await page.getByRole('button',{name:'Показать пример на схеме',exact:true}).waitFor();
+  while(await page.getByRole('button',{name:'Показать пример на схеме',exact:true}).count()){await click('Что делать?');assert.equal(await page.locator('[data-task-guide] details').getAttribute('open'),'');await click('Показать пример на схеме');await onScreen('Теория '+chapter);const stage=await page.evaluate(()=>Patrol.ui.course.current().stage);await click('Понятно, следующий шаг');await page.waitForFunction(stage=>Patrol.ui.course.current().stage!==stage,stage);}
+  await click('Посмотреть демонстрацию на стенде');await require('./ux-helpers.cjs').demo(page,chapter);await click('Перейти к тренировке');
+  await onTraining(page,chapter);await page.getByLabel(answers[chapter],{exact:true}).check();await click('Проверить ответ');await click('Перейти к практике');await instructions(page);await click('Открыть Network Lab');await tutorial(page);await onLab(page,chapter);
+  if(chapter===2)await cable(page,'d3','d2');
+  if(chapter===3){for(const [i,id]of ['d1','d3','d4'].entries()){assert.ok((await page.locator('[data-task-guide]').textContent()).includes(`PC-0${i+1}`));await cable(page,id,'d2');}await page.locator('[data-device=d2]').click();await click('Таблица портов проверена');}
+  if(chapter===5){await page.locator('[data-device=d3]').click();await click('Что делать?');for(const [i,n]of ['192','168','300','20'].entries()){await page.getByLabel(`Октет ${i+1} PC-02`,{exact:true}).fill(n);await page.getByLabel(`Октет ${i+1} PC-02`,{exact:true}).press('Tab');}await click('Проверить сеть');await page.waitForFunction(()=>!document.querySelector('.lab-board.checking'));assert.ok((await page.locator('.lab-message').textContent()).includes('255'));await click('Нужна подсказка');await page.waitForFunction(()=>document.querySelector('.lab-message')?.textContent.includes('Подсказка'));assert.ok((await page.locator('.lab-message').textContent()).includes('Подсказка'));for(const [i,n]of ['192','168','1','20'].entries())await page.getByLabel(`Октет ${i+1} PC-02`,{exact:true}).fill(n);await click('Сохранить настройки');}
+  if(chapter===6){await page.locator('[data-device=d3]').click();await page.getByLabel('IP-адрес',{exact:true}).fill('192.168.1.20');await click('Сохранить настройки');}
+  if(chapter===7){await click('+ Router');const router=await page.locator('.lab-device.router').getAttribute('data-device'),other=await page.locator('.lab-device.switch').filter({hasText:'SW-B'}).getAttribute('data-device');await cable(page,'d2',router);await cable(page,router,other);}
+  if(chapter===8){await page.locator('[data-device=d3]').click();await page.getByLabel('Шлюз',{exact:true}).fill('192.168.2.1');await click('Сохранить настройки');}
+  await page.screenshot({animations:'disabled',path:`.prototype-checks/ux-practice-${chapter}.png`});await click([3,4].includes(chapter)?'Отправить данные':'Проверить сеть');await click('Итоги главы');const text=await page.locator('#overlay-content').textContent();for(const block of ['Что вы сделали','Что вы изучили','Что дальше'])assert.ok(text.includes(block));await click('Продолжить');await page.waitForFunction(n=>Patrol.progress.currentChapter===n+1,chapter);await onChapter(chapter);await page.waitForFunction(()=>document.querySelectorAll('.quest-target').length===1);
+ }
+ for(let chapter=Math.max(9,startChapter);chapter<=15;chapter++){console.log('E2E novice: chapter '+chapter);
+  const wanted=chapter<=11?'classroom':chapter===12||chapter===15?'staff':'server';let room=await page.evaluate(()=>Patrol.progress.location);
+  if(room!==wanted){if(room!=='corridor')await move({lab:'lab-exit',classroom:'class-exit',staff:'staff-exit',server:'server-exit'}[room]);await move({classroom:'to-class',staff:'to-staff',server:'to-server'}[wanted]);}
+  await page.locator('#map-button').click();await click('Показать цель');await require('./walk.cjs').talk(page);await instructions(page);await click('Начать объяснение');await page.getByRole('button',{name:'Показать пример на схеме',exact:true}).waitFor();
+  while(await page.getByRole('button',{name:'Показать пример на схеме',exact:true}).count()){await click('Показать пример на схеме');await onScreen('Теория '+chapter);const stage=await page.evaluate(()=>Patrol.ui.course.current().stage);await click('Понятно, следующий шаг');await page.waitForFunction(stage=>Patrol.ui.course.current().stage!==stage,stage);}
+  if(chapter===9){await click('Посмотреть терминал');assert.match(await page.locator('.terminal-output').textContent(),/кабель не участвовал/);await click('Вернуться к главе');}
+  else if(chapter<=11){await click('Посмотреть демонстрацию на стенде');await tutorial(page);await click('Вернуться к главе');}
+  await click('Перейти к тренировке');await onTraining(page,chapter);await page.getByLabel(answers[chapter],{exact:true}).check();await click('Проверить ответ');await click('Перейти к практике');await instructions(page);
+  if(chapter===9||chapter===11){
+   if(chapter===11){
+    await click('Открыть Network Lab');await tutorial(page);await page.locator('[data-device=d1]').click();
+    await page.getByLabel('IP-адрес',{exact:true}).fill('192.168.1.100');await click('Сохранить настройки');await click('Вернуться к главе');
+    await click('Открыть учебный терминал');await page.getByLabel('Учебная команда').fill('ping 192.168.1.100');await click('Выполнить');
+    assert.match(await page.locator('.terminal-output').textContent(),/Конфликт IP/);assert.doesNotMatch(await page.locator('.terminal-output').textContent(),/связь есть/);await onScreen('Ошибочная конфигурация: ping при конфликте IPv4');
+    assert.equal(await page.evaluate(()=>Patrol.progress.completedChapters.includes(11)),false);await click('Вернуться к главе');
+    await click('Открыть Network Lab');await page.locator('[data-device=d1]').click();await page.getByLabel('IP-адрес',{exact:true}).fill('192.168.1.10');await click('Сохранить настройки');await click('Вернуться к главе');
+   }
+   await click('Открыть учебный терминал');const run=async cmd=>{await page.getByLabel('Учебная команда').fill(cmd);await click('Выполнить');};
+   await run(chapter===9?'ping 127.0.0.1':'ping 192.168.1.100');await page.waitForTimeout(350);await page.evaluate(()=>Patrol.engines.save.pending);await page.reload();await page.waitForFunction(()=>typeof ready!=='undefined'&&ready);await require('./walk.cjs').talk(page);
+   if(chapter===11){await click('Открыть Network Lab');await tutorial(page);await page.locator('[data-device=d1]').click();await page.getByLabel('DNS',{exact:true}).fill('192.168.1.100');await click('Сохранить настройки');await click('Вернуться к главе');}
+   await click('Открыть учебный терминал');for(const cmd of chapter===9?['ping 192.168.1.20']:['nslookup college.ru','ping college.ru'])await run(cmd);await click('Проверить практику');
+  }
+  if(chapter===10){await click('Открыть Network Lab');await tutorial(page);const laptop=page.locator('.lab-device.laptop');await click('Ethernet');await laptop.click();await page.locator('[data-device=d2]').click();await page.getByRole('button',{name:/^Подключить к Port \d+$/}).first().click();await laptop.click();await click('Получить настройки DHCP');assert.match(await page.locator('.lab-message').textContent(),/Discover.*Offer.*Request.*ACK/);await click('Проверить сеть');await click('Итоги главы');}
+  if(chapter===12){await click('Сохранить example.txt на C:');await click('Сохранить example.txt на Z:');await click('Отключить сеть');await page.waitForTimeout(350);await page.evaluate(()=>Patrol.engines.save.pending);await page.reload();await page.waitForFunction(()=>typeof ready!=='undefined'&&ready);await require('./walk.cjs').talk(page);assert.match(await page.locator('.course-scenario').textContent(),/сеть отключена/);await page.getByLabel('Почему Z: пропал?').selectOption('remote');}
+  if(chapter===13){for(const [i,v]of ['files','dns','dhcp','web','database'].entries())await page.locator('.course-scenario select').nth(i).selectOption(v);}
+  if(chapter===14){for(const level of ['0','1','5'])await click('Отказ одного диска RAID '+level);await page.getByLabel('Защита от случайного удаления').selectOption('backup');}
+  if(chapter===15){for(let i=0;i<3;i++){const ticket=page.locator('.shift-ticket').nth(i);for(const name of ['Link и кабель','Настройки ПК','Ping по IP','DNS','DHCP','Файловая служба'])await ticket.getByRole('button',{name,exact:true}).click();const log=await ticket.locator('pre').textContent();let cause;
+    // Infer the hypothesis from observations visible to the student, without reading tickets or hidden models.
+    if(/кабелей 0/.test(log))cause='cable';else if(/порт выключен/.test(log))cause='link';else if(/Служба DHCP выключена/.test(log))cause='dhcp';else if(/IP 192.168.300/.test(log))cause='ip';else if(/IP 192.168.1.20/.test(log))cause='duplicate';else if(/маска 255.0.255.0/.test(log))cause='mask';else if(/шлюз 192.168.1.99/.test(log))cause='gateway';else if(/DNS не задан/.test(log))cause='dns';else if(/Файловая служба выключена/.test(log))cause='resource';else throw Error('No understandable hypothesis in visible observations: '+log);
+    if(i===0){
+     await page.getByLabel('Причина заявки 1').selectOption(cause==='resource'?'cable':'resource');await ticket.getByRole('button',{name:'Применить выбранное исправление и проверить',exact:true}).click();assert.match(await ticket.locator('pre').textContent(),/Пересмотрите гипотезу/);
+     const failed=page.waitForResponse(r=>r.url().endsWith('/api/student/action')&&r.request().postDataJSON().action==='coursePractice');await click('Проверить практику');assert.equal((await (await failed).json()).ok,false);assert.equal(await page.evaluate(()=>Patrol.progress.completedChapters.includes(15)),false);await onScreen('Неверная гипотеза главы 15 не засчитана');
+    }
+    await page.getByLabel('Причина заявки '+(i+1)).selectOption(cause);await ticket.getByRole('button',{name:'Применить выбранное исправление и проверить',exact:true}).click();assert.match(await ticket.locator('pre').textContent(),/После исправления/);
+   }}
+  await page.screenshot({animations:'disabled',path:'.prototype-checks/ux-practice-'+chapter+'.png'});if(chapter>=12)await click('Проверить практику');await click('Продолжить');await page.waitForFunction(n=>Patrol.progress.currentChapter===n+1,chapter);await onChapter(chapter);
+ }
+ assert.equal(await page.evaluate(()=>Patrol.progress.currentChapter),16);console.log('PASS: fresh student completed chapters 2–15 through browser controls and visible observations');
+};

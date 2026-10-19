@@ -34,7 +34,7 @@ const base={location:'lab',completedChapters:[0,1],currentChapter:2,unlockedLoca
     if(id===5){const invalid=solution(id);invalid.model.devices[2].ip='192.168.300.20';const r=await call('coursePractice',invalid);eq(r.body.ok,false);assert.ok(r.body.message.includes('255'));checks++;}
     if(id===8){const invalid=solution(id);invalid.model.devices[2].gateway='192.168.1.1';eq((await call('coursePractice',invalid)).body.ok,false);}
     const r=await call('coursePractice',solution(id,p.course[id].tickets));eq(r.body.ok,true);eq(C.info(p).stage,'result');assert.ok(p.completedChapters.includes(id));checks++;
-    const xp=p.xp;eq((await call('coursePractice',solution(id))).status,400);eq(p.xp,xp);
+    const xp=p.xp;const repeated=await call('coursePractice',solution(id,p.course[id].tickets));eq(repeated.status,200);eq(repeated.body.ok,true);eq(p.xp,xp);
     eq((await call('courseContinue')).status,200);eq(p.currentChapter,id+1);eq(p.currentObjective,id===15?'courseFinished':'course');
   }
   eq(p.xp,1860);eq(p.completedChapters.length,16);

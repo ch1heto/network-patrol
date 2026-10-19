@@ -1,13 +1,21 @@
 'use strict';
 (() => {
+  function shuffledIndices(options) {
+    const indices = options.map((_, index) => index);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    return indices;
+  }
   function open(id) {
     const task = Patrol.data.tasks[id], ui = Patrol.engines.ui;
     if (!ui.open({ title: task.title, subtitle: 'Короткая проверка · можно попробовать снова' })) return;
     const form = document.createElement('form'); form.className = 'task-form';
-    if (task.type === 'quiz') task.options.forEach((value, index) => {
+    if (task.type === 'quiz') (task.mode === 'boolean' ? task.options.map((_, index) => index) : shuffledIndices(task.options)).forEach(index => {
       const label = document.createElement('label'), input = document.createElement('input');
       input.type = task.mode === 'multiple' ? 'checkbox' : 'radio'; input.name = 'answer'; input.value = index;
-      label.append(input, document.createTextNode(value)); form.append(label);
+      label.append(input, document.createTextNode(task.options[index])); form.append(label);
     });
     else task.items.forEach((item, index) => {
       const label = document.createElement('label'); label.textContent = item;
@@ -36,5 +44,5 @@
     ui.button('Открыть объяснение', () => { Patrol.engines.save.action({action:'hint'}).catch(()=>{}); ui.close(); Patrol.ui.knowledge.open(({storageQuiz:'storage',serverServicesQuiz:'dns',subnetQuiz:'subnet',networkQuiz:'network'})[id] || (id.startsWith('packet')?'packet':'switch')); }, { secondary: true });
   }
   const originalOpen=open;
-  Patrol.ui.quiz = { open(id){originalOpen(id);Patrol.ui.taskGuide?.addHelpButtons();} };
+  Patrol.ui.quiz = { shuffledIndices, open(id){originalOpen(id);Patrol.ui.taskGuide?.addHelpButtons();} };
 })();

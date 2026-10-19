@@ -77,6 +77,7 @@
     }
   }
   function update(deltaTime) {
+    if (!Patrol.runtime?.ready || !Patrol.runtime.scene) { nearest = null; return; }
     Patrol.ui.taskGuide ? Patrol.ui.taskGuide.paintMarker() : Patrol.ui.course?.paintMarker();
     const point = Patrol.runtime.point;
     const range = Math.max(60, Math.min(110, Patrol.runtime.scene.playerHeight * .42));
@@ -92,12 +93,12 @@
     const task=Patrol.ui.taskGuide?.current();if(task&&nearest?.id===task.targetId)button.textContent=task.interactionAction;
     document.getElementById('interaction-hint').textContent='○';
     const marker=document.getElementById('interaction-hint');marker.hidden=!nearest||Patrol.runtime.blocked||nearest.id===task?.targetId;
-    if(nearest){const node=nearest.kind==='door'?document.querySelector(`[data-door="${nearest.id}"]`):nearest.node;const anchor=nearest.kind==='door'?{x:nearest.x+90,y:Patrol.engines.locations.current.farY-220}:{x:nearest.point.x,y:(nearest.kind==='scenery'?parseFloat(node.style.top):nearest.point.y)-node.offsetHeight*(nearest.scale||1)-35};marker.style.left=`${anchor.x-14}px`;marker.style.top=`${anchor.y}px`;marker.dataset.target=nearest.id;}
+    if(nearest){const node=nearest.kind==='door'?document.querySelector(`[data-door="${nearest.id}"]`):nearest.node;const anchor=nearest.kind==='door'?{x:nearest.x,y:Patrol.engines.locations.current.farY-220}:{x:nearest.point.x,y:(nearest.kind==='scenery'?parseFloat(node.style.top):nearest.point.y)-node.offsetHeight*(nearest.scale||1)-35};marker.style.left=`${anchor.x-14}px`;marker.style.top=`${anchor.y}px`;marker.dataset.target=nearest.id;}
     for (const item of candidates) item.node.classList.toggle('in-range', !Patrol.runtime.blocked && item.id === nearest?.id);
     document.querySelectorAll('.wall-door').forEach(node=>node.classList.toggle('in-range',!Patrol.runtime.blocked && node.dataset.door === nearest?.id));
   }
   function interact() {
-    if (Patrol.runtime.blocked || !nearest) return;
+    if (!Patrol.runtime?.ready || Patrol.runtime.blocked || !nearest) return;
     ui().dismissOnboarding();
     const item = nearest;
     if (item.kind === 'door') { Patrol.engines.locations.enter(item); return; }

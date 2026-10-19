@@ -51,6 +51,17 @@ function draw() {
   lastDrawn = id;
 }
 
+function updateAnimation(nextMoving, redraw = true) {
+  // Animate actual displacement; held input still drives physics and wall interactions.
+  if (moving !== nextMoving) animationTime = 0;
+  moving = nextMoving;
+  state = !moving ? 'IDLE' : facing > 0 ? 'RUN RIGHT' : 'RUN LEFT';
+  sprite.classList.toggle('facing-left', facing < 0);
+  if (ready) statusLabel.textContent = state;
+  character.setAttribute('aria-label', !moving ? 'Персонаж стоит' : movementY < 0 ? 'Персонаж бежит в глубину' : movementY > 0 ? 'Персонаж бежит к переднему плану' : facing > 0 ? 'Персонаж бежит вправо' : 'Персонаж бежит влево');
+  if (redraw) draw();
+}
+
 function updateInput() {
   let horizontal = null;
   let vertical = null;
@@ -61,26 +72,18 @@ function updateInput() {
   const rawX = horizontal ? horizontal.x : 0;
   const rawY = vertical ? vertical.y : 0;
   const length = Math.hypot(rawX, rawY);
-  const nextMoving = length > 0;
-  // Keep the current run frame through reversals and diagonal changes.
-  if (moving !== nextMoving) animationTime = 0;
-  moving = nextMoving;
   movementX = length ? rawX / length : 0;
   movementY = length ? rawY / length : 0;
   if (rawX) facing = Math.sign(rawX);
-  state = !moving ? 'IDLE' : facing > 0 ? 'RUN RIGHT' : 'RUN LEFT';
-  sprite.classList.toggle('facing-left', facing < 0);
-  if (ready) statusLabel.textContent = state;
-  character.setAttribute('aria-label', !moving ? 'Персонаж стоит' : rawY < 0 ? 'Персонаж бежит в глубину' : rawY > 0 ? 'Персонаж бежит к переднему плану' : facing > 0 ? 'Персонаж бежит вправо' : 'Персонаж бежит влево');
+  updateAnimation(moving && length > 0);
   buttons.forEach(button => {
     const held = [...inputs.keys()].some(key => key.startsWith(`pointer:${button.dataset.direction}:`));
     button.classList.toggle('pressed', held);
   });
-  draw(); // Key release displays idle immediately, before the next animation tick.
 }
 
 function press(key, value) {
-  if (blocked) return;
+  if (!ready || blocked) return;
   Patrol.engines.ui.dismissOnboarding();
   if (!inputs.has(key)) inputs.set(key, { ...value, order: ++sequence });
   updateInput();
@@ -100,11 +103,11 @@ const keys = {
 };
 window.addEventListener('keydown', event => {
   if (event.code === 'KeyE' && !event.repeat) {
-    if (!blocked) { event.preventDefault(); Patrol.engines.npcs.interact(); }
+    if (ready && !blocked) { event.preventDefault(); Patrol.engines.npcs.interact(); }
     return;
   }
   if (!(event.code in keys)) return;
-  if (blocked) return;
+  if (!ready || blocked || event.repeat && !inputs.has(`key:${event.code}`)) return;
   event.preventDefault();
   press(`key:${event.code}`, keys[event.code]);
 });
@@ -114,6 +117,7 @@ window.addEventListener('keyup', event => {
   release(`key:${event.code}`);
 });
 window.addEventListener('blur', clearInput);
+window.addEventListener('contextmenu', clearInput, true);
 document.addEventListener('visibilitychange', () => { if (document.hidden) clearInput(); });
 
 buttons.forEach(button => {
@@ -186,6 +190,7 @@ function layoutCorridor() {
   for (const id of ['debug-area', 'debug-foot', 'debug-values']) document.getElementById(id).toggleAttribute('hidden', !DEBUG);
 }
 function resize() {
+  if (!Patrol.runtime || !Patrol.engines.locations) return;
   // Preserve depth and lateral position when rotating a phone or resizing.
   const oldDepth = scene ? depthAt(playerY) : 0.65;
   const oldBounds = scene ? boundsAt(playerY) : null;
@@ -218,11 +223,13 @@ function tick(timestamp) {
   const deltaTime = previousTimestamp === null ? 0 : Math.min((timestamp - previousTimestamp) / 1000, 0.1);
   previousTimestamp = timestamp;
   if (ready) {
+    const previousPoint = { x: playerX, y: playerY };
     const attempted = { x: playerX + movementX * SPEED * deltaTime, y: playerY + movementY * SPEED * deltaTime };
     const resolved = Patrol.engines.collisions.resolve({ x: playerX, y: playerY }, attempted);
     playerX = resolved.x;
     playerY = resolved.y;
     constrainPlayer();
+    updateAnimation(!blocked && Math.hypot(playerX - previousPoint.x, playerY - previousPoint.y) > 1e-6, false);
     Patrol.engines.locations.update(deltaTime, attempted);
     Patrol.engines.npcs.update(deltaTime);
     animationTime += deltaTime;
@@ -240,16 +247,19 @@ async function start() {
       animation.image.src = animation.src;
       await animation.image.decode();
     }));
-    ready = true;
     resize();
-    updateInput();
     Patrol.engines.locations.render();
     Patrol.runtime.spawnAt(Patrol.engines.locations.current.spawn.x, Patrol.engines.locations.current.spawn.y);
+    ready = true;
+    clearInput();
+    Patrol.engines.npcs.update(0);
     character.style.visibility = 'visible';
     loading.hidden = true;
     Patrol.engines.ui.showOnboarding();
     requestAnimationFrame(tick);
   } catch (error) {
+    ready = false;
+    clearInput();
     loading.textContent = 'Не удалось загрузить персонажа. Проверьте папку assets и обновите страницу.';
     statusLabel.textContent = 'ОШИБКА ЗАГРУЗКИ';
     console.error('Failed to load character atlases:', error);
@@ -259,11 +269,13 @@ async function start() {
 // never replace the canvas, RAF loop or atlases; they only use these scene hooks.
 Patrol.runtime = {
   get scene() { return scene; }, get point() { return { x: playerX, y: playerY }; },
+  get ready() { return ready; },
   get blocked() { return blocked; }, boundsAt, scaleAt,
-  setBlocked(value) { blocked = value; clearInput(); Patrol.engines.npcs.update(0); },
+  setBlocked(value) { blocked = !!value; clearInput(); if (ready && scene) Patrol.engines.npcs.update(0); },
   refreshScene: resize,
-  spawnAt(x, y) { playerX = x; playerY = y; constrainPlayer(); position(); clearInput(); Patrol.engines.camera.snap(); Patrol.engines.npcs.update(0); },
+  spawnAt(x, y) { if (!scene) return; playerX = x; playerY = y; constrainPlayer(); position(); clearInput(); Patrol.engines.camera.snap(); if (ready) Patrol.engines.npcs.update(0); },
   spawn(depth, lateral) {
+    if (!scene) return;
     playerY = lerp(scene.farY, scene.nearY, depth);
     const bounds = boundsAt(playerY);
     playerX = lerp(bounds.minX, bounds.maxX, lateral);

@@ -28,7 +28,7 @@ module.exports=async function novice(page,startChapter=2){
   while(await page.getByRole('button',{name:'Показать пример на схеме',exact:true}).count()){await click('Показать пример на схеме');const stage=await page.evaluate(()=>Patrol.ui.course.current().stage);await click('Понятно, следующий шаг');await page.waitForFunction(stage=>Patrol.ui.course.current().stage!==stage,stage);}
   if(chapter===9){await click('Посмотреть терминал');assert.match(await page.locator('.terminal-output').textContent(),/кабель не участвовал/);await click('Вернуться к главе');}
   else if(chapter<=11){await click('Посмотреть демонстрацию на стенде');await tutorial(page);await click('Вернуться к главе');}
-  await click('Перейти к тренировке');await page.locator('.task-form input').first().check();await click('Проверить ответ');await click('Перейти к практике');await instructions(page);
+  await click('Перейти к тренировке');const training=require('../server/content.cjs').data.curriculum[chapter].training;await page.getByLabel(training.options[training.answer],{exact:true}).check();await click('Проверить ответ');await click('Перейти к практике');await instructions(page);
   if(chapter===9||chapter===11){
    await click('Открыть учебный терминал');const run=async cmd=>{await page.getByLabel('Учебная команда').fill(cmd);await click('Выполнить');};
    await run(chapter===9?'ping 127.0.0.1':'ping 192.168.1.100');await page.evaluate(()=>Patrol.engines.save.flush());await page.reload();await page.waitForFunction(()=>typeof ready!=='undefined'&&ready);await require('./walk.cjs').talk(page);

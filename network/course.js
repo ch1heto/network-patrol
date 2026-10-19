@@ -6,6 +6,7 @@
    p.course??={};
    if(p.completedChapters.includes(1)&&p.currentChapter>=2&&p.currentChapter<=15){p.course[p.currentChapter]??={step:0,wrong:0,hints:0};p.currentObjective='course';}
    if(p.currentChapter>=12&&!p.unlockedLocations.includes('staff'))p.unlockedLocations.push('staff');
+   if(p.currentChapter===15&&p.completedChapters.includes(1)){const cs=p.course[15];if(['practical','result'].includes(stages(Patrol.data.curriculum[15])[cs.step])&&(!Array.isArray(cs.tickets)||cs.tickets.length!==3||cs.tickets.some(t=>!faults.includes(t))))cs.tickets=['cable','dns','gateway'];}
    return p;
  }
  function info(p){const c=Patrol.data.curriculum[p.currentChapter];if(!c||!p.completedChapters.includes(1))return null;const state=p.course?.[c.id]||{step:0,wrong:0,hints:0};return {c,state,stage:stages(c)[state.step]||'intro'};}
@@ -27,15 +28,32 @@
    return m;
  }
  function dhcp(m,id){
-   const d=m.devices.find(d=>d.id===id),server=m.devices.find(s=>s.type==='server'&&s.services?.dhcp&&T.path(m,id,s.id)&&!T.path(m,id,s.id).some(x=>m.devices.find(n=>n.id===x)?.type==='router'));
+   const d=m.devices.find(d=>d.id===id),server=m.devices.find(s=>s.type==='server'&&s.services?.dhcp&&T.path(m,id,s.id,{throughRouters:false}));
    if(!d||!server)return {ok:false,message:'DHCP не ответил. Проверьте Link, доступность сервера в своей LAN и включение службы. Настройки не получены.'};
+   if(!S.host(server.ip,server.mask))return {ok:false,message:'DHCP-сервер имеет некорректный IP или маску. Настройки не получены.'};
    const start=server.services.poolStart,end=server.services.poolEnd;
    if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end>254||start>end)return {ok:false,message:'Пул DHCP настроен неправильно – допустимые свободные адреса должны принадлежать этой учебной подсети.'};
    const prefix=server.ip.split('.').slice(0,3).join('.');let address;
-   for(let n=start;n<=end;n++){const v=`${prefix}.${n}`;if(!m.devices.some(p=>p.id!==id&&p.ip===v)){address=v;break;}}
+   const available=v=>S.host(v,server.mask)&&S.same(v,server.ip,server.mask)&&!m.devices.some(p=>p.id!==id&&(p.ip===v||p.interfaces.some(i=>i.ip===v)));
+   const previous=d.services?.dhcpLease;
+   if(previous?.server===server.id&&typeof previous.address==='string'&&previous.address.startsWith(prefix+'.')){const n=Number(previous.address.split('.').at(-1));if(n>=start&&n<=end&&available(previous.address))address=previous.address;}
+   for(let n=start;!address&&n<=end;n++){const v=`${prefix}.${n}`;if(available(v)){address=v;break;}}
    if(!address)return {ok:false,message:'Свободных адресов в пуле нет. Расширьте допустимый пул или освободите аренду.'};
-   Object.assign(d,{ip:address,mask:server.mask,gateway:server.services.gateway,dns:server.services.dnsAddress});d.services.dhcpLease={server:server.id,address};T.refresh(m);
+   Object.assign(d,{ip:address,mask:server.mask,gateway:server.services.gateway,dns:server.services.dnsAddress});d.services??={};d.services.dhcpLease={server:server.id,address};T.refresh(m);
    return {ok:true,message:`Discover → Offer ${address} → Request → ACK. Получены IP ${d.ip}, маска ${d.mask}, шлюз ${d.gateway}, DNS ${d.dns}.`};
+ }
+ function leaseValid(m,id){
+   const d=m.devices.find(d=>d.id===id),lease=d?.services?.dhcpLease,server=m.devices.find(s=>s.id===lease?.server&&s.services?.dhcp);
+   const n=Number(d?.ip?.split('.').at(-1));
+   return !!(server&&lease.address===d.ip&&S.host(d.ip,d.mask)&&d.ip.startsWith(server.ip.split('.').slice(0,3).join('.')+'.')&&n>=server.services.poolStart&&n<=server.services.poolEnd&&d.mask===server.mask&&d.gateway===server.services.gateway&&d.dns===server.services.dnsAddress&&T.path(m,id,server.id,{throughRouters:false}));
+ }
+ function ticketResult(m,type){
+   if(!N.validModel(m))return {ok:false,message:'Учебная схема заявки повреждена. Восстановите задание.'};
+   if(type==='dhcp'&&!leaseValid(m,m.devices[0]?.id))return {ok:false,message:'Нужна действующая аренда DHCP с выданными сервером параметрами.'};
+   const tested=type==='dns'?terminal(m,'nslookup college.ru'):terminal(m,`ping ${m.devices.find(d=>d.name==='PC-02')?.ip}`);
+   if(!tested.ok)return tested;
+   if(!m.resourceUp)return {ok:false,message:'Файловая служба выключена. Исходная жалоба ещё не исправлена.'};
+   return tested;
  }
  function terminal(m,command){
    const tokens=typeof command==='string'?command.trim().toLowerCase().split(/\s+/):[];
@@ -88,20 +106,20 @@
    const bad=(message,code='TASK_STATE_INVALID')=>({ok:false,code,message}),good=message=>({ok:true,message});
    if([2,3,4,5,6,7,8,9,10,11].includes(chapter)&&!N.validModel(m))return bad('Схема повреждена. Восстановите учебную схему, затем повторите настройку.');
    if(chapter>=2&&chapter<=11&&(!m.devices[0]||!m.devices[1]||!m.devices[2]||m.devices[0].type!=='pc'||m.devices[1].type!=='switch'||m.devices[2].type!=='pc'))return bad('В схеме должны оставаться исходные PC-01, Switch и PC-02. Нажмите «Восстановить задание» и повторите текущие подключения или настройки.');
-   if(chapter===15){if(!Array.isArray(response)||response.length!==tickets.length)return bad('Нужно завершить каждую заявку.');for(let i=0;i<tickets.length;i++){const r=response[i];if(!r||!r.fixed||r.cause!==tickets[i]||!Array.isArray(r.checks)||new Set(r.checks.filter(x=>['link','settings','ping','dns','dhcp','resource'].includes(x))).size<2)return bad(`Заявка ${i+1}: сопоставьте наблюдения с причиной, выполните минимум две разные проверки и примените выбранное исправление. Готовое решение NPC не выдаёт.`);if(!N.validModel(r.model)||typeof r.model.resourceUp!=='boolean')return bad(`Заявка ${i+1}: отсутствует исправленная учебная схема. Примените изменение и повторите исходную проверку.`);const restored=structuredClone(r.model);if(tickets[i]==='dhcp'&&!restored.devices[0].services.dhcpLease)return bad(`Заявка ${i+1}: нужна автоматическая аренда DHCP, а не ручная подмена адреса.`);const tested=tickets[i]==='dns'?terminal(restored,'nslookup college.ru'):terminal(restored,`ping ${restored.devices[2].ip}`);if(!tested.ok||!restored.resourceUp)return bad(`Заявка ${i+1}: исходная проверка после исправления не прошла.`);}return good('Все заявки диагностированы и подтверждены. Причины и порядок проверок записаны.');}
+   if(chapter===15){if(!Array.isArray(tickets)||tickets.length!==3||tickets.some(t=>!faults.includes(t)))return bad('Нужно получить три заявки текущей смены. Восстановите задание.');if(!Array.isArray(response)||response.length!==tickets.length)return bad('Нужно завершить каждую заявку.');for(let i=0;i<tickets.length;i++){const r=response[i];if(!r||!r.fixed||r.cause!==tickets[i]||!Array.isArray(r.checks)||new Set(r.checks.filter(x=>['link','settings','ping','dns','dhcp','resource'].includes(x))).size<2)return bad(`Заявка ${i+1}: сопоставьте наблюдения с причиной, выполните минимум две разные проверки и примените выбранное исправление. Готовое решение NPC не выдаёт.`);if(!N.validModel(r.model)||typeof r.model.resourceUp!=='boolean')return bad(`Заявка ${i+1}: отсутствует исправленная учебная схема. Примените изменение и повторите исходную проверку.`);const tested=ticketResult(r.model,tickets[i]);if(!tested.ok)return bad(`Заявка ${i+1}: ${tested.message}`,tested.code);}return good('Все заявки диагностированы и подтверждены. Причины и порядок проверок записаны.');}
    if(chapter===12)return response?.local&&response?.remote&&response?.disconnected&&response?.answer==='remote'?good('C: остался доступен, Z: требует сети до другого устройства.'):bad('Сначала сохраните файл в C: и Z:, затем отключите сеть. C: хранится здесь, Z: находится на файловом сервере.');
    if(chapter===13){const expected=['files','dns','dhcp','web','database'],roles={files:'файлового сервера',dns:'DNS',dhcp:'DHCP',web:'веб-сервера',database:'базы данных'};const labels=['Общая папка','Поиск адреса по имени','Автонастройка','Страница сайта','Записи приложения'];const i=expected.findIndex((v,i)=>response?.[i]!==v);return i<0?good('Все серверные роли выбраны по запросам клиентов.'):bad(`${labels[i]} – нужна служба ${roles[expected[i]]}. DNS ищет адрес, DHCP выдаёт настройки, файлы предоставляет файловая служба, страницы – веб, записи – база данных.`);}
    if(chapter===14)return response?.tested?.includes('0')&&response.tested.includes('1')&&response.tested.includes('5')&&response.answer==='backup'?good('RAID 0 не выдерживает отказ диска. RAID 1/5 в модели выдерживают один; резервная копия нужна отдельно.'):bad('Проверьте отказ одного диска во всех трёх моделях. RAID не защищает от случайного удаления – нужна отдельная резервная копия.');
    const [a,sw,b]=m.devices;
    if(chapter===4&&!response?.sent)return bad('Нажмите Отправить данные и проследите путь через SW-01. Физическая схема уже готова.');
    if(chapter===2||chapter===3){const pcs=m.devices.filter(d=>d.type==='pc');if(pcs.length!==(chapter===2?2:3))return bad('Сохраните требуемые ПК и один учебный Switch.');T.refresh(m);if(pcs.some(d=>d.linkState!=='up'||!m.links.some(l=>[l.fromDevice,l.toDevice].includes(d.id)&&[l.fromDevice,l.toDevice].includes(sw.id)&&l.status==='up')))return bad('Каждому ПК нужен отдельный активный Ethernet-кабель до SW-01. Посмотрите Link и включение портов.');if(chapter===2)return good('Оба Link UP. Физическое соединение готово.');}
-   if(chapter===7){const r=m.devices.find(d=>d.type==='router'),sws=m.devices.filter(d=>d.type==='switch');if(!r||sws.length!==2||sws.some(d=>!T.path(m,d.id,r.id)))return bad('Для двух LAN добавьте один Router и отдельные кабели к обоим Switch.');const first=m.links.find(l=>[l.fromDevice,l.toDevice].includes(sw.id)&&[l.fromDevice,l.toDevice].includes(r.id));if(!first||(first.fromDevice===r.id?first.fromPort:first.toPort)!=='eth0')return bad('SW-A должен подключаться к eth0 – интерфейсу сети 192.168.1.0/24.');return good('Две LAN физически связаны через Router. Продолжите главой 8 с Ириной Викторовной: настроим шлюзы ПК.');}
+   if(chapter===7){const r=m.devices.find(d=>d.type==='router'),sws=m.devices.filter(d=>d.type==='switch');if(!r||sws.length!==2||sws.some(d=>!T.path(m,d.id,r.id)))return bad('Для двух LAN добавьте один Router и отдельные кабели к обоим Switch.');if(sws.some(d=>!m.links.some(l=>[l.fromDevice,l.toDevice].includes(d.id)&&[l.fromDevice,l.toDevice].includes(r.id)&&T.portState(m,r.id,l.fromDevice===r.id?l.fromPort:l.toPort).linkState==='up')))return bad('Каждый Switch должен иметь отдельный активный Ethernet-кабель к Router. Проверьте оба порта.');return good('Две LAN физически связаны через Router. Продолжите главой 8 с Ириной Викторовной: настроим шлюзы ПК.');}
    if(chapter===5){if(S.ip(b.ip)===null)return bad('IPv4 должен иметь четыре октета от 0 до 255. Число 300 недопустимо.','INVALID_IPV4');if(a.ip===b.ip)return bad('Такой адрес уже использует PC-01. Назначьте PC-02 свободный адрес.','IP_CONFLICT');if(!S.same(a.ip,b.ip,'255.255.255.0'))return bad('Адрес корректно записан, но относится к другой подсети учебного примера. Маску подробно изучим в следующей главе.','WRONG_SUBNET');}
    if(chapter===6&&(a.mask!=='255.255.255.0'||b.mask!=='255.255.255.0'))return bad('В этой работе используйте /24, то есть 255.255.255.0. Другие маски меняют границу учебной сети.');
    if(chapter===9){const required=['ping 127.0.0.1','ping 192.168.1.20'];if(required.some(cmd=>!response?.commands?.includes(cmd)||!terminal(m,cmd).ok))return bad('Выполните две успешные проверки: loopback и соседний ПК по IP. Первая не проверяет кабель.');return good('Loopback проверен внутри ПК, соседний адрес – по физическому пути.');}
-   if(chapter===10){const laptop=m.devices.find(d=>d.type==='laptop');if(!laptop?.services.dhcpLease)return bad('Новый ноутбук должен получить аренду DHCP, а не только ручной IP.');const copy=structuredClone(m),lease=dhcp(copy,laptop.id);if(!lease.ok)return lease;if(copy.devices.find(d=>d.id===laptop.id).ip!==laptop.ip)return bad('Параметры не соответствуют свободной аренде учебного DHCP. Запросите настройки снова.');return S.check(m,laptop.id,'192.168.1.100');}
+   if(chapter===10){const laptop=m.devices.find(d=>d.type==='laptop');if(!laptop||!leaseValid(m,laptop.id))return bad('Ноутбуку нужна действующая аренда DHCP: проверьте Link, службу, IP, маску, шлюз и DNS. Запросите настройки снова.');return S.check(m,laptop.id,'192.168.1.100');}
    if(chapter===11){if(!response?.commands?.includes('nslookup college.ru')||!response.commands.includes('ping college.ru'))return bad('После настройки DNS выполните nslookup college.ru и ping college.ru. Сравните ответ имени и сетевую доступность.');const result=terminal(m,'nslookup college.ru');return result.ok?terminal(m,'ping college.ru'):result;}
    return S.check(m,a.id,b.id);
  }
- N.course={stages,migrate,info,model,dhcp,terminal,validate,faults,faultNames,ticket,repair,observations};
+ N.course={stages,migrate,info,model,dhcp,leaseValid,ticketResult,terminal,validate,faults,faultNames,ticket,repair,observations};
 })();

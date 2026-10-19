@@ -98,10 +98,17 @@ body:has(#overlay[open]) #world .quest-target::after { display:none; }
 .subnet-host { background:#fff1c9; color:#654719; padding:4px; }
 
 .network-lab > .task-guide { grid-column:1 / -1; position:sticky; top:0; z-index:1000; max-height:36vh; overflow:auto; }
+.network-lab > .task-guide:has(details[open]) { position:static; }
 
 .lab-message { white-space:pre-line; }
 
-.ip-octets .octet-field { display:inline-block; margin:0; }
+.ip-octets .octet-field { display:inline-block; margin:0; flex:1; min-width:0; }
+.ip-octets .octet-field input { width:100%; box-sizing:border-box; min-width:3.5ch; padding:5px 3px; appearance:textfield; }
+.ip-octets input::-webkit-inner-spin-button, .ip-octets input::-webkit-outer-spin-button { appearance:none; margin:0; }
+/* Keep the final practice action reachable while the ticket list scrolls. */
+#overlay[open]:has(.shift-ticket) { display:flex; flex-direction:column; overflow:hidden; }
+#overlay:has(.shift-ticket) #overlay-content { overflow-y:auto; min-height:0; }
+#overlay:has(.shift-ticket) .overlay-heading, #overlay:has(.shift-ticket) #overlay-actions { flex-shrink:0; }
 
 body:has(#overlay[open]) #interaction-hint { display:none; }
 body:has(#overlay[open]) .hud .quest-target::after { display:none; }

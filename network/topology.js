@@ -45,14 +45,18 @@
     model.links.push(link); refresh(model); return link;
   }
   function remove(model, id) { model.devices = model.devices.filter(d => d.id !== id); model.links = model.links.filter(l => l.id !== id && l.fromDevice !== id && l.toDevice !== id); refresh(model); }
-  function path(model, from, to) {
+  function path(model, from, to, options = {}) {
     const queue = [[from]]; const visited = new Set([from]);
     while (queue.length) {
       const route = queue.shift(), id = route.at(-1);
       if (id === to) return route;
       const d = model.devices.find(d => d.id === id);
       if (id !== from && !['switch', 'router', 'ap'].includes(d?.type)) continue;
+      if (id !== from && d?.type === 'router' && options.throughRouters === false) continue;
       for (const link of model.links.filter(l => l.status === 'up' && (l.fromDevice === id || l.toDevice === id))) {
+        const portAt = device => link.fromDevice === device ? link.fromPort : link.toPort;
+        if (id === from && options.sourcePort && portAt(from) !== options.sourcePort) continue;
+        if ([link.fromDevice,link.toDevice].includes(to) && options.targetPort && portAt(to) !== options.targetPort) continue;
         const next = link.fromDevice === id ? link.toDevice : link.fromDevice;
         const a = model.devices.find(d => d.id === link.fromDevice), b = model.devices.find(d => d.id === link.toDevice);
         if (!a?.ports.find(p => p.id === link.fromPort)?.up || !b?.ports.find(p => p.id === link.toPort)?.up) continue;

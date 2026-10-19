@@ -27,7 +27,7 @@
       .filter(d => d.distance < 145).sort((a,b) => a.distance-b.distance)[0] || null;
   }
   function enter(door) {
-    if (transitioning || Patrol.engines.ui.isOpen || Patrol.runtime.blocked || !current.doors.some(d => d.id === door.id)) return;
+    if (!Patrol.runtime?.ready || transitioning || Patrol.engines.ui.isOpen || Patrol.runtime.blocked || !current.doors.some(d => d.id === door.id)) return;
     if (!unlocked(door.target)) {
       const ui = Patrol.engines.ui;
       if (ui.open({ title: 'Проход пока закрыт', subtitle: door.label })) {
@@ -55,7 +55,7 @@
     if (transitioning || Patrol.runtime.blocked || cooldown) { boundaryTime = 0; return; }
     const scene = Patrol.runtime.scene, point = Patrol.runtime.point, bounds = Patrol.runtime.boundsAt(point.y);
     const kind = attempted.y < scene.farY-.1 ? 'up' : attempted.x < bounds.minX-.1 ? 'left' : attempted.x > bounds.maxX+.1 ? 'right' : null;
-    if (!kind || (kind === 'up' && nearestDoor())) { boundaryKind = null; boundaryTime = 0; return; }
+    if (current.id !== 'corridor' || !kind || (kind === 'up' && nearestDoor())) { boundaryKind = null; boundaryTime = 0; return; }
     if (kind !== boundaryKind) { boundaryKind = kind; boundaryTime = 0; }
     boundaryTime += dt;
     if (boundaryTime >= .35) {
